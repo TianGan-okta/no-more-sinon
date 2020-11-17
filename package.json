@@ -1,0 +1,29 @@
+{
+  "version": "0.0.0",
+  "description": "",
+  "author": " <>",
+  "main": "lib/index.js",
+  "devDependencies": {
+    "@babel/cli": "^7.x",
+    "@babel/core": "^7.x",
+    "@babel/plugin-syntax-object-rest-spread": "^7.8.3",
+    "@babel/preset-env": "^7.x",
+    "@babel/register": "^7.x",
+    "commander": "^2.9.0",
+    "cross-env": "^4.0.0",
+    "glob": "^7.1.1",
+    "mocha": "^2.2.5",
+    "prettier": "^2.1.2"
+  },
+  "scripts": {
+    "clean": "rm -rf lib",
+    "build": "babel main.js -d lib && babel src -d lib/src ",
+    "demo": "node bin/dedup-beforeeach",
+    "test": "mocha --compilers js:babel-register",
+    "test:watch": "npm run test -- --watch",
+    "prepublish": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "babel-plugin"
+  ]
+}
