@@ -19,7 +19,7 @@
     "clean": "rm -rf lib",
     "build": "babel main.js -d lib && babel src -d lib/src ",
     "demo": "node bin/dedup-beforeeach",
-    "test": "mocha --compilers js:babel-register",
+    "test": "mocha --compilers js:@babel/register",
     "test:watch": "npm run test -- --watch",
     "prepublish": "npm run clean && npm run build"
   },

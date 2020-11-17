@@ -1,0 +1,11 @@
+promotion:
+    master:
+      - merge
+      - tag
+      - npm_promotion
+      - release_notes
+    /(^release$|^preview$|^hotfix|^([0-9]+\.[0-9]+)-(hf|pf|lc|pb|tf)[0-9]+$)/:
+      - npm_promotion
+    default:
+      - fail
+  
