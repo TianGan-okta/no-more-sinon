@@ -1,4 +1,5 @@
 import {isBeforeEach, getBeforeEachBody, isEmptyCall} from "./beforeEach";
+import { isFalsy, addNotExpect } from "./jestHelpers";
 import {isRestoreSandbox, isSinonFunction, removeSandbox} from "./sinonSandbox";
 
 module.exports = function ({ types: t }) {
@@ -68,7 +69,11 @@ module.exports = function ({ types: t }) {
             path.get("expression.callee.object.arguments.0").replaceWith(
               path.get("expression.callee.object.arguments.0.object")
             );
-            // Replace .toBe(true) with .toHaveBeenCalled()
+            // If falsy, add .not
+            if (isFalsy(path)) {
+              addNotExpect(path, t);
+            }
+            // Replace .toBe(x) with .toHaveBeenCalled()
             path.get("expression.callee.property").replaceWith(
               t.identifier("toHaveBeenCalled")
             );
@@ -83,7 +88,11 @@ module.exports = function ({ types: t }) {
             path.get("expression.callee.object.arguments.0").replaceWith(
               path.get("expression.callee.object.arguments.0.object")
             );
-            // Replace .toBe(true) with .toHaveBeenCalledTimes(1)
+            // If falsy, add .not
+            if (isFalsy(path)) {
+              addNotExpect(path, t);
+            }
+            // Replace .toBe(x) with .toHaveBeenCalledTimes(1)
             path.get("expression.callee.property").replaceWith(
               t.identifier("toHaveBeenCalledTimes")
             );
@@ -100,6 +109,10 @@ module.exports = function ({ types: t }) {
             path.get("expression.callee.object.arguments.0").replaceWith(
               path.get("expression.callee.object.arguments.0.callee.object")
             );
+            // If falsy, add .not
+            if (isFalsy(path)) {
+              addNotExpect(path, t);
+            }
             // Replace .toBe(true) with .toHaveBeenCalledTimes(x)
             path.get("expression.callee.property").replaceWith(
               t.identifier("toHaveBeenCalledWith")
