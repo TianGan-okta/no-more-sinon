@@ -1,10 +1,26 @@
 import {isBeforeEach, getBeforeEachBody, isEmptyCall} from "./beforeEach";
-import { isFalsy, addNotExpect } from "./jestHelpers";
-import {isRestoreSandbox, isSinonFunction, removeSandbox} from "./sinonSandbox";
+import {isRestoreSandbox, isSinonFunction, removeSinonVisitor, removeSandbox, removeSandboxVisitor} from "./sinonSandbox";
 
 module.exports = function ({ types: t }) {
   return {
     visitor: {
+      ImportDeclaration(path) {
+        /**
+         * If importing sinon, remove the declaration and references in the code
+         * - import sinon from "sinon"
+         * - import $sandbox from "sandbox"
+         */
+        if (path.get("source").isStringLiteral({ value: "sinon" })) {
+          const sinonName = path.node.specifiers[0].local.name;
+          path.findParent((parentPath) => parentPath.isProgram()).traverse(removeSinonVisitor(sinonName, t));
+          path.remove();
+        } else if (path.get("source").isStringLiteral({ value: "sandbox" })) {
+          const sandboxName = path.node.specifiers[0].local.name;
+          path.findParent((parentPath) => parentPath.isProgram()).traverse(removeSandboxVisitor(sandboxName));
+          path.remove();
+        }
+      },
+
       BlockStatement(path, state) {
         const beforeEachExp = path.node.body.filter(isBeforeEach.bind(this, t));
         if (beforeEachExp.length >= 2) {
@@ -31,156 +47,19 @@ module.exports = function ({ types: t }) {
       },
 
       ExpressionStatement(path) {
-        // update the path with sandbox removal
-        path.parentPath.traverse({
-          ImportDeclaration(path) {
-            removeSandbox(path, t);
-          },
-
-          ExpressionStatement(path) {
-            if (isSinonFunction(path.node, t) || isRestoreSandbox(path.node, t)) {
-              path.remove();
-            }
-          }
-        });
-
-        // remove empty function after sandbox removal
-        if(isEmptyCall(path.node, t)) {
+        /**
+         * Remove empty statements such as beforeEach(() => {}) that occur after removing sandbox/sinon
+         */
+        if (
+          (
+            path.get("expression.callee").isIdentifier({ name: "beforeEach" }) ||
+            path.get("expression.callee").isIdentifier({ name: "beforeAll" }) ||
+            path.get("expression.callee").isIdentifier({ name: "afterEach" }) ||
+            path.get("expression.callee").isIdentifier({ name: "afterAll" })
+          ) &&
+          isEmptyCall(path.node, t)
+        ) {
           path.remove();
-        }
-
-        /**
-         * Change sinon spy methods and properties to jest
-         * - expect(testContext.spies.method.called).toBe(true); => expect(testContext.spies.method).toHaveBeenCalled();
-         * - expect(testContext.spies.method.calledOnce).toBe(true); => expect(testContext.spies.method).toHaveBeenCalledTimes(1);
-         * - expect(testContext.spies.method.calledWith(5)).toBe(true); => expect(testContext.spies.method).toHaveBeenCalledWith(5);
-         */
-        else if (
-          path.get("expression").isCallExpression() &&
-          path.get("expression.callee").isMemberExpression() &&
-          path.get("expression.callee.object").isCallExpression() &&
-          path.get("expression.callee.object.callee").isIdentifier({ name: "expect" })
-        ) {
-          // .called
-          if (
-            path.get("expression.callee.object.arguments.0.property").isIdentifier({ name: "called" })
-          ) {
-            // Remove .called
-            path.get("expression.callee.object.arguments.0").replaceWith(
-              path.get("expression.callee.object.arguments.0.object")
-            );
-            // If falsy, add .not
-            if (isFalsy(path)) {
-              addNotExpect(path, t);
-            }
-            // Replace .toBe(x) with .toHaveBeenCalled()
-            path.get("expression.callee.property").replaceWith(
-              t.identifier("toHaveBeenCalled")
-            );
-            path.get("expression.arguments.0").remove();
-          }
-
-          // .calledOnce
-          else if (
-            path.get("expression.callee.object.arguments.0.property").isIdentifier({ name: "calledOnce" })
-          ) {
-            // Remove .calledOnce
-            path.get("expression.callee.object.arguments.0").replaceWith(
-              path.get("expression.callee.object.arguments.0.object")
-            );
-            // If falsy, add .not
-            if (isFalsy(path)) {
-              addNotExpect(path, t);
-            }
-            // Replace .toBe(x) with .toHaveBeenCalledTimes(1)
-            path.get("expression.callee.property").replaceWith(
-              t.identifier("toHaveBeenCalledTimes")
-            );
-            path.get("expression.arguments.0").replaceWith(t.numericLiteral(1));
-          }
-
-          // .calledWith
-          else if (
-            path.get("expression.callee.object.arguments.0").isCallExpression() &&
-            path.get("expression.callee.object.arguments.0.callee.property").isIdentifier({ name: "calledWith" })
-          ) {
-            // Remove .calledWith(x)
-            const calledWithArgs = path.node.expression.callee.object.arguments[0].arguments
-            path.get("expression.callee.object.arguments.0").replaceWith(
-              path.get("expression.callee.object.arguments.0.callee.object")
-            );
-            // If falsy, add .not
-            if (isFalsy(path)) {
-              addNotExpect(path, t);
-            }
-            // Replace .toBe(true) with .toHaveBeenCalledTimes(x)
-            path.get("expression.callee.property").replaceWith(
-              t.identifier("toHaveBeenCalledWith")
-            );
-            path.get("expression").replaceWith(
-              t.callExpression(path.node.expression.callee, calledWithArgs)
-            );
-          }
-        }
-      },
-
-      CallExpression(path) {
-        /**
-         * Change sinon spy to jest spyOn
-         * testContext.ss.spy(obj, 'method') => jest.spyOn(obj, 'method')
-         */
-        if (
-          path.get("callee.property").isIdentifier({ name: "spy" }) &&
-          path.get("arguments").length === 2 &&
-          path.get("arguments")[0].isIdentifier() &&
-          path.get("arguments")[1].isLiteral()
-        ) {
-          path.get("callee").replaceWith(
-            t.memberExpression(t.identifier('jest'), t.identifier('spyOn'))
-          )
-        }
-      },
-
-      MemberExpression(path) {
-        /**
-         * Change sinon spy methods and properties to jest
-         * - testContext.spies.method.callCount => testContext.spies.method.mock.calls.length
-         * - testContext.spies.method.args[0][0] => testContext.spies.method.mock.calls[0][0]
-         */
-
-        // .callCount
-        if (
-          path.get("property").isIdentifier({ name: "callCount" })
-        ) {
-          path.replaceWith(
-            t.memberExpression(
-              t.memberExpression(
-                t.memberExpression(
-                  path.node.object,
-                  t.identifier("mock")
-                ),
-                t.identifier("calls")
-              ),
-              t.identifier("length")
-            )
-          );
-        }
-
-        // .args
-        else if (
-          path.get("property").isIdentifier({ name: "args" }) &&
-          path.parentPath.isMemberExpression() &&
-          path.parentPath.get("property").isNumericLiteral()
-        ) {
-          path.replaceWith(
-            t.memberExpression(
-              t.memberExpression(
-                path.node.object,
-                t.identifier("mock")
-              ),
-              t.identifier("calls")
-            )
-          )
         }
       },
     }

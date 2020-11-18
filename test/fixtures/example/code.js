@@ -1,3 +1,4 @@
+import sinon from 'sinon';
 import $sandbox from 'sandbox';
 
 describe('timeout-enforcement/models/TimeoutEnforcement', () => {
@@ -20,6 +21,7 @@ describe('timeout-enforcement/models/TimeoutEnforcement', () => {
   });
 
   it('has a Model and a Collection', () => {
+    testContext.ss.clock.tick(100);
     expect(TimeoutEnforcement.Model).toBeDefined();
     expect(TimeoutEnforcement.Collection).toBeDefined();
   });
