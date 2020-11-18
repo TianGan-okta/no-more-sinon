@@ -1,6 +1,6 @@
 import {isBeforeEach, getBeforeEachBody, isEmptyCall} from "./beforeEach";
 import { isFalsy, addNotExpect } from "./jestHelpers";
-import {isRestoreSandbox, isSinonFunction, removeSandbox} from "./sinonSandbox";
+import { removeSandbox, removeSinonFunction} from "./sinonSandbox";
 
 module.exports = function ({ types: t }) {
   return {
@@ -38,10 +38,8 @@ module.exports = function ({ types: t }) {
           },
 
           ExpressionStatement(path) {
-            if (isSinonFunction(path.node, t) || isRestoreSandbox(path.node, t)) {
-              path.remove();
-            }
-          }
+            removeSinonFunction(path, t);
+          },
         });
 
         // remove empty function after sandbox removal
@@ -121,23 +119,6 @@ module.exports = function ({ types: t }) {
               t.callExpression(path.node.expression.callee, calledWithArgs)
             );
           }
-        }
-      },
-
-      CallExpression(path) {
-        /**
-         * Change sinon spy to jest spyOn
-         * testContext.ss.spy(obj, 'method') => jest.spyOn(obj, 'method')
-         */
-        if (
-          path.get("callee.property").isIdentifier({ name: "spy" }) &&
-          path.get("arguments").length === 2 &&
-          path.get("arguments")[0].isIdentifier() &&
-          path.get("arguments")[1].isLiteral()
-        ) {
-          path.get("callee").replaceWith(
-            t.memberExpression(t.identifier('jest'), t.identifier('spyOn'))
-          )
         }
       },
 
