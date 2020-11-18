@@ -3,6 +3,7 @@ describe("sinon-stub", () => {
   const obj = {
     method: (num) => num + 10,
     add: (a, b) => a + b,
+    refresh: () => {},
   };
 
   function setupMock(ss) {
@@ -10,7 +11,7 @@ describe("sinon-stub", () => {
       add: jest.spyOn(obj, "add").mockImplementation(() => {
         return $.Deferred().resolve();
       }),
-      refresh: jest.fn(),
+      refresh: jest.spyOn(obj, "refresh").mockImplementation(() => {}),
     };
   }
 

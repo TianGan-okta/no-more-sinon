@@ -1,3 +1,5 @@
+import sinon from 'sinon';
+
 describe('sinon-spy', () => {
   let testContext;
   const obj = {
@@ -21,7 +23,9 @@ describe('sinon-spy', () => {
   });
 
   it('spy on method', () => {
+    const clock = sinon.useFakeTimers();
     expect(obj.method(5)).toBe(15);
+    clock.tick(100);
     expect(testContext.spies.method.called).toBe(true);
     expect(testContext.stubs.add.called).toBe(false);
     expect(testContext.spies.method.callCount).toBe(1);
