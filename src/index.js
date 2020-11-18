@@ -1,16 +1,5 @@
-function isBeforeEach(t, value) {
-  return t.isExpressionStatement(value)
-    && t.isCallExpression(value.expression)
-    && t.isIdentifier(value.expression.callee)
-    && value.expression.callee.name === 'beforeEach';
-}
-
-function getBeforeEachBody(t, value) {
-  return value.expression
-    .arguments[0]  // ArrowFunctionExpression or FunctionExpression
-    .body  // BlockStatement
-    .body
-}
+import {isBeforeEach, getBeforeEachBody, isEmptyCall} from "./beforeEach";
+import {isRestoreSandbox, isSinonFunction, removeSandbox} from "./sinonSandbox";
 
 module.exports = function ({ types: t }) {
   return {
@@ -38,7 +27,27 @@ module.exports = function ({ types: t }) {
             return otherBeforeEach.indexOf(b) === -1;
           });
         }
-      }
+      },
+
+      ExpressionStatement(path) {
+        // update the path with sandbox removal
+        path.parentPath.traverse({
+          ImportDeclaration(path) {
+            removeSandbox(path, t);
+          },
+
+          ExpressionStatement(path) {
+            if (isSinonFunction(path.node, t) || isRestoreSandbox(path.node, t)) {
+              path.remove();
+            }
+          }
+        });
+
+        // remove empty function after sandbox removal
+        if(isEmptyCall(path.node, t)) {
+          path.remove();
+        }
+      },
     }
   };
 }
