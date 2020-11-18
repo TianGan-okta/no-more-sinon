@@ -21,27 +21,25 @@ function convert(filePath, options) {
   });
 
 
-  if (state.ignore === false) {
-    console.log(`Processing ${filePath}`);
-    if (options.dryrun) {
-      return;
-    }
-    result = prettier.format(result.code, {
-      useTabs: false,
-      printWidth: 120,
-      tabWidth: 2,
-      singleQuote: true,
-      trailingComma: 'es5',
-      bracketSpacing: true,
-      parser: 'babel',
-      semi: true,
-    });
+  console.log(`Processing ${filePath}`);
+  if (options.dryrun) {
+    return;
+  }
+  result = prettier.format(result.code, {
+    useTabs: false,
+    printWidth: 120,
+    tabWidth: 2,
+    singleQuote: true,
+    trailingComma: 'es5',
+    bracketSpacing: true,
+    parser: 'babel',
+    semi: true,
+  });
 
-    if (options.modify) {
-      fs.writeFileSync(filePath, result);
-    } else {
-      console.log('Does not change file as modify in place option is not enabled. done.');
-    }
+  if (options.modify) {
+    fs.writeFileSync(filePath, result);
+  } else {
+    console.log('Does not change file as modify in place option is not enabled. done.');
   }
 
 };
