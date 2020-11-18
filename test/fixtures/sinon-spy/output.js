@@ -19,7 +19,9 @@ describe("sinon-spy", () => {
     setupMock.call(testContext, testContext.ss);
   });
   it("spy on method", () => {
+    jest.useFakeTimers();
     expect(obj.method(5)).toBe(15);
+    jest.advanceTimersByTime(100);
     expect(testContext.spies.method).toHaveBeenCalled();
     expect(testContext.stubs.add).not.toHaveBeenCalled();
     expect(testContext.spies.method.mock.calls.length).toBe(1);

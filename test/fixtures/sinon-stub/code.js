@@ -1,14 +1,17 @@
+import sinon from 'sinon';
+
 describe('sinon-stub', () => {
   let testContext;
   const obj = {
     method: (num) => num + 10,
-    add: (a, b) => a + b
+    add: (a, b) => a + b,
+    refresh: () => {}
   };
 
   function setupMock(ss) {
     this.stubs = {
       add: ss.stub(obj, 'add').returns($.Deferred().resolve()),
-      refresh: ss.stub()
+      refresh: ss.stub(obj, 'refresh')
     };
   }
 
