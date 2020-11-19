@@ -50,7 +50,6 @@ const convertSinonMethodsVisitor = (sinonName, sinonSandboxName, t) => ({
       else if (
         path.get("callee.property").isIdentifier({ name: "stub" }) &&
         path.get("arguments").length === 2 &&
-        path.get("arguments.0").isIdentifier() &&
         path.get("arguments.1").isStringLiteral()
       ) {
         const parent = path.parentPath;
