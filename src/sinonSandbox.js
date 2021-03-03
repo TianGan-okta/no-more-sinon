@@ -22,17 +22,39 @@ const convertSinonMethodsVisitor = (sinonName, sinonSandboxName, t) => ({
     /**
      * Handle methods 
      * - sinon.spy(obj, 'method') => jest.spyOn(obj, 'method')
+     * - sinon.expect({ a: 'a' }) => expect.objectContaining({ a: 'a' })
      * - testContext.ss.spy(obj, 'method') => jest.spyOn(obj, 'method')
      * - testContext.ss.stub(obj, 'method').return(true) => jest.spyOn(obj, 'method').mockImplementation(() => { return true; })
      * - testContext.ss.restore()
+     * 
+     * Looking at calls from
+     * - The import variable name for sinon
+     * - The variable name for the created sinon sandbox
+     * - sandbox
+     * - [this/testContext].sandbox
+     * - [this/testContext].ss
+     * - [this/testContext].sinonbox
      */
 
     if (
       path.get("callee.object").isIdentifier({ name: sinonName }) ||
       path.get("callee.object").isIdentifier({ name: sinonSandboxName }) ||
+      path.get("callee.object").isIdentifier({ name: 'sandbox' }) ||
       (
         path.get("callee.object").isMemberExpression() &&
         path.get("callee.object.property").isIdentifier({ name: sinonSandboxName })
+      ) ||
+      (
+        path.get("callee.object").isMemberExpression() &&
+        path.get("callee.object.property").isIdentifier({ name: 'sandbox' })
+      ) ||
+      (
+        path.get("callee.object").isMemberExpression() &&
+        path.get("callee.object.property").isIdentifier({ name: 'ss' })
+      ) ||
+      (
+        path.get("callee.object").isMemberExpression() &&
+        path.get("callee.object.property").isIdentifier({ name: 'sinonbox' })
       )
     ) {
       // .spy
@@ -93,6 +115,15 @@ const convertSinonMethodsVisitor = (sinonName, sinonSandboxName, t) => ({
       // .restore
       else if (path.get("callee.property").isIdentifier({ name: "restore" })) {
         path.getStatementParent().remove();
+      }
+      // sinon.match(<object>)
+      else if (
+        path.get("callee.object").isIdentifier({ name: sinonName }) &&
+        path.get("callee.property").isIdentifier({ name: "match" }) &&
+        path.get("arguments.0").isObjectExpression()
+      ) {
+        path.get("callee.object").replaceWith(t.identifier("expect"));
+        path.get("callee.property").replaceWith(t.identifier("objectContaining"));
       }
     }
   }
@@ -226,12 +257,51 @@ export const removeSinonVisitor = (sinonName, t) => ({
         );
       }
     }
+
+    /**
+     * Handle stub method withArgs. Not supported:
+     * - Multiple calls of .withArgs on the same stub
+     * - Multiple parameter in .withArgs
+     * - Non-literal parameter in .withArgs (such as an Object)
+     * 
+     * Examples:
+     * - stub.hasFeature.withArgs('a').returns(true) => stub.hasFeature.mockImplementation((arg) => arg === 'a' ? true : null)
+     * - stub.hasFeature.withArgs(true).returns('a') => stub.hasFeature.mockImplementation((arg) => arg === true ? 'a' : null)
+     */
+    else if (
+      path.get("callee.property").isIdentifier({ name: "returns" }) &&
+      path.get("callee.object").isCallExpression() &&
+      path.get("callee.object.callee").isMemberExpression() &&
+      path.get("callee.object.callee.property").isIdentifier({ name: "withArgs" }) &&
+      path.get("callee.object.arguments").length === 1
+    ) {
+      const calleeObject = path.get("callee.object.callee.object").node;
+      const returnsVal = path.get("arguments.0").node;
+      const argVal = path.get("callee.object.arguments.0").node;
+      path.replaceWith(t.callExpression(
+        t.memberExpression(
+          calleeObject,
+          t.identifier("mockImplementation"),
+        ),
+        [
+          t.arrowFunctionExpression(
+            [t.identifier('arg')],
+            t.conditionalExpression(
+              t.binaryExpression("===", t.identifier('arg'), argVal),
+              returnsVal,
+              t.nullLiteral(),
+            ),
+          ),
+        ],
+      ));
+    }
   },
 
   ExpressionStatement(path) {
     /**
      * Change sinon spy methods and properties to jest
      * - expect(testContext.spies.method.called).toBe(true); => expect(testContext.spies.method).toHaveBeenCalled();
+     * - expect(testContext.spies.method.notCalled).toBe(true); => expect(testContext.spies.method).not.toHaveBeenCalled();
      * - expect(testContext.spies.method.calledOnce).toBe(true); => expect(testContext.spies.method).toHaveBeenCalledTimes(1);
      * - expect(testContext.spies.method.calledWith(5)).toBe(true); => expect(testContext.spies.method).toHaveBeenCalledWith(5);
      */
@@ -251,6 +321,25 @@ export const removeSinonVisitor = (sinonName, t) => ({
         );
         // If falsy, add .not
         if (isFalsy(path)) {
+          addNotExpect(path, t);
+        }
+        // Replace .toBe(x) with .toHaveBeenCalled()
+        path.get("expression.callee.property").replaceWith(
+          t.identifier("toHaveBeenCalled")
+        );
+        path.get("expression.arguments.0").remove();
+      }
+
+      // .notCalled
+      else if (
+        path.get("expression.callee.object.arguments.0.property").isIdentifier({ name: "notCalled" })
+      ) {
+        // Remove .called
+        path.get("expression.callee.object.arguments.0").replaceWith(
+          path.get("expression.callee.object.arguments.0.object")
+        );
+        // If truthy, add .not
+        if (!isFalsy(path)) {
           addNotExpect(path, t);
         }
         // Replace .toBe(x) with .toHaveBeenCalled()
