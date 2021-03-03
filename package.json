@@ -1,11 +1,11 @@
 {
-  "name": "no-more-sinon",
+  "name": "babel-plugin-no-more-sinon",
   "version": "0.0.0",
   "description": "",
   "author": " <>",
   "main": "lib/index.js",
   "bin": {
-    "no-more-sinon": "./bin/dedup-beforeeach"
+    "no-more-sinon": "./bin/no-more-sinon"
   },
   "devDependencies": {
     "@babel/cli": "^7.x",
@@ -23,7 +23,7 @@
   "scripts": {
     "clean": "rm -rf lib",
     "build": "babel main.js -d lib && babel src -d lib/src ",
-    "demo": "node bin/dedup-beforeeach",
+    "demo": "node bin/no-more-sinon",
     "test": "jest",
     "test:watch": "yarn test --watch",
     "prepublish": "yarn clean && yarn build"
