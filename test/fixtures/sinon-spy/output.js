@@ -1,24 +1,24 @@
-describe("sinon-spy", () => {
+describe('sinon-spy', () => {
   let testContext;
   const obj = {
-    method: (num) => num + 10,
-    add: (a, b) => a + b,
+    method: num => num + 10,
+    add: (a, b) => a + b
   };
 
   function setupMock(ss) {
     this.stubs = {
-      add: jest.spyOn(obj, "add"),
+      add: jest.spyOn(obj, 'add')
     };
   }
 
   beforeEach(() => {
     testContext = {};
     testContext.spies = {
-      method: jest.spyOn(obj, "method"),
+      method: jest.spyOn(obj, 'method')
     };
     setupMock.call(testContext, testContext.ss);
   });
-  it("spy on method", () => {
+  it('spy on method', () => {
     jest.useFakeTimers();
     expect(obj.method(5)).toBe(15);
     jest.advanceTimersByTime(100);

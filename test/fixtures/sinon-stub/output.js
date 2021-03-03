@@ -1,28 +1,28 @@
-describe("sinon-stub", () => {
+describe('sinon-stub', () => {
   let testContext;
   const obj = {
-    method: (num) => num + 10,
+    method: num => num + 10,
     add: (a, b) => a + b,
-    refresh: () => {},
+    refresh: () => {}
   };
 
   function setupMock(ss) {
     this.stubs = {
-      add: jest.spyOn(obj, "add").mockImplementation(() => {
+      add: jest.spyOn(obj, 'add').mockImplementation(() => {
         return $.Deferred().resolve();
       }),
-      refresh: jest.spyOn(obj, "refresh").mockImplementation(() => {}),
+      refresh: jest.spyOn(obj, 'refresh').mockImplementation(() => {})
     };
   }
 
   beforeEach(() => {
     testContext = {};
     testContext.spies = {
-      method: jest.spyOn(obj, "method"),
+      method: jest.spyOn(obj, 'method')
     };
     setupMock.call(testContext, testContext.ss);
   });
-  it("spy on method", () => {
+  it('spy on method', () => {
     expect(obj.method(5)).toBe(15);
     expect(testContext.spies.method).toHaveBeenCalled();
     expect(testContext.stubs.add).not.toHaveBeenCalled();
